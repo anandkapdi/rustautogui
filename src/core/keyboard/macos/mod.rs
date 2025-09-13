@@ -324,7 +324,7 @@ impl Keyboard {
         keymap.insert(String::from("\""), (39, true));
         keymap.insert(String::from("<"), (43, true));
         keymap.insert(String::from(">"), (47, true));
-        keymap.insert(String::from("/"), (44, true));
+        keymap.insert(String::from("/"), (6, true));
         keymap
     }
 }
