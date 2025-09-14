@@ -72,6 +72,58 @@ impl crate::RustAutoGui {
         Ok(Some(locations_ajusted))
     }
 
+    pub fn find_image_in_image(
+        &mut self,
+        precision: f32,
+        image: ImageBuffer<Luma<u8>, Vec<u8>>,
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
+        /// searches for image on screen and returns found locations in vector format
+        let image: ImageBuffer<Luma<u8>, Vec<u8>> = self
+            .screen
+            .grab_screen_image_grayscale(&self.template_data.region)?;
+
+        if self.debug {
+            let debug_path = Path::new("debug");
+            if !debug_path.exists() {
+                match fs::create_dir_all(debug_path) {
+                    Ok(_) => {
+                        println!("Created a debug folder in your root for saving segmented template images");
+                        match image.save("debug/screen_capture.png") {
+                            Ok(_) => (),
+                            Err(x) => println!("{}", x),
+                        };
+                    }
+                    Err(x) => {
+                        println!("Failed to create debug folder");
+                        println!("{}", x);
+                    }
+                };
+            }
+        };
+
+        #[cfg(target_os = "macos")]
+        let locations = match self.run_macos_xcorr_with_backup(image, precision)? {
+            Some(x) => x,
+            None => return Ok(None),
+        };
+        #[cfg(not(target_os = "macos"))]
+        let locations = match self.run_x_corr(image, precision)? {
+            Some(x) => x,
+            None => return Ok(None),
+        };
+
+        let locations_ajusted: Vec<(u32, u32, f32)> = locations
+            .iter()
+            .map(|(mut x, mut y, corr)| {
+                x = x + self.template_data.region.0 + (self.template_width / 2);
+                y = y + self.template_data.region.1 + (self.template_height / 2);
+                (x, y, *corr)
+            })
+            .collect();
+
+        Ok(Some(locations_ajusted))
+    }
+
     // for macOS with retina display, two runs are made. One for resized template
     // and if not found , then second for normal sized template
     // since the function recursively calls find_stored_image_on_screen -> run_macos_xcorr_with_backup
